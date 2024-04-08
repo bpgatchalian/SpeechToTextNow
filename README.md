@@ -42,7 +42,8 @@ sttn = SpeechToTextNow(
     channels=1, 
     rate=16000, 
     chunk_duration_ms=30,
-    padding_duration_ms=300
+    padding_duration_ms=300,
+    stt_engine="google_stt"
 )
 
 # Start listening and transcribing in real-time
