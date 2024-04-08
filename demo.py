@@ -1,3 +1,4 @@
+import os
 import pyaudio
 import wave
 import webrtcvad
@@ -6,6 +7,11 @@ import speech_recognition as sr
 import io
 import queue
 import threading
+import tempfile
+from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class SpeechToTextNow:
     def __init__(
@@ -14,7 +20,8 @@ class SpeechToTextNow:
             channels=1, 
             rate=16000, 
             chunk_duration_ms=30, 
-            padding_duration_ms=300
+            padding_duration_ms=300,
+            stt_engine="google_stt"
             ):
         self.vad = webrtcvad.Vad(vad_mode)
         self.FORMAT = pyaudio.paInt16
@@ -33,6 +40,8 @@ class SpeechToTextNow:
                                       frames_per_buffer=self.CHUNK_SIZE)
     
         self.speech_segments_queue = queue.Queue()
+        self.stt_engine = stt_engine
+        self.stt = STTEngine()
 
     def find_microphone(self):
         keywords = ["Microphone", "Mic", "Input", "Line In"]
@@ -56,17 +65,13 @@ class SpeechToTextNow:
         buffer.seek(0)
         return buffer
     
-    def transcribe_audio(self, audio_buffer):
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(audio_buffer) as source:
-            audio_data = recognizer.record(source)
-            try:
-                text = recognizer.recognize_google(audio_data)
-                print(f"{text}")
-            except sr.UnknownValueError:
-                pass
-            except sr.RequestError as e:
-                print(f"Could not transcribe audio; {e}")
+    def transcribe_audio(self, audio_data):
+        if self.stt_engine == "google_stt":
+            google_stt = self.stt.google_stt(audio_data)
+            return google_stt
+        elif self.stt_engine == "openai_stt":
+            openai_stt = self.stt.openai_stt(audio_data)
+            return openai_stt
 
     def listen(self):
         ring_buffer = collections.deque(maxlen=self.NUM_PADDING_CHUNKS)
@@ -94,7 +99,7 @@ class SpeechToTextNow:
                         #print("End Recording")
                         triggered = False
                         self.speech_segments_queue.put(voiced_frames)
-                        threading.Thread(target=self.start_queue).start()
+                        threading.Thread(target=self.start_queue).start()                        
                         voiced_frames = []
         finally:
             self.stream.stop_stream()
@@ -104,16 +109,57 @@ class SpeechToTextNow:
     def start_queue(self):
         while not self.speech_segments_queue.empty():
             voiced_frames = self.speech_segments_queue.get()
-            audio_buffer = self.save_speech(voiced_frames, self.RATE)
-            self.transcribe_audio(audio_buffer)
+            audio_data = self.save_speech(voiced_frames, self.RATE)
+            transcribed_data = self.transcribe_audio(audio_data)
+            if transcribed_data:
+                print(transcribed_data)
+            else:
+                pass
             self.speech_segments_queue.task_done()
+            
+class STTEngine:
+    def __init__(self) -> None:
+        api_key = os.getenv('OPENAI_API_KEY')
+        self.client = OpenAI(api_key=api_key)
+
+    def google_stt(self, audio_data):
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(audio_data) as source:
+            audio_data = recognizer.record(source)
+            try:
+                text = recognizer.recognize_google(audio_data)
+                return text
+            except sr.UnknownValueError:
+                pass
+            except sr.RequestError as e:
+                return e
+
+    def openai_stt(self, audio_data):
+        audio_data.seek(0)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_file_path = os.path.join(tmp_dir, "audio_data.wav")
+            
+            with open(temp_file_path, 'wb') as tmp_file:
+                tmp_file.write(audio_data.getvalue())
+
+            try:
+                with open(temp_file_path, 'rb') as audio_file:
+                    transcription = self.client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=audio_file
+                    )
+                    return transcription.text
+            except Exception as e:
+                return str(e)
 
 if __name__ == "__main__":
         
     sttn=SpeechToTextNow(
         channels=1, rate=16000, 
         chunk_duration_ms=30,
-        padding_duration_ms=300
+        padding_duration_ms=300,
+        stt_engine="google_stt"
     )
 
     sttn.listen()
