@@ -2,3 +2,4 @@ PyAudio==0.2.14
 webrtcvad==2.0.10
 SpeechRecognition==3.10.1
 python-dotenv==1.0.1
+openai==1.16.2
