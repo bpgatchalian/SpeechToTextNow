@@ -166,6 +166,19 @@ class STTEngine:
                 return str(e)
 
 if __name__ == "__main__":
+    import time
 
     stt_now = SpeechToTextNow()
-    stt_now.listen()
+    #stt_now.listen()
+
+    stt_now.start_listening()
+
+    i = 1
+
+    while i <= 20:
+        print(i)
+        time.sleep(1)
+        if i == 15:
+            stt_now.stop_listening()
+            break
+        i += 1
