@@ -21,7 +21,8 @@ class SpeechToTextNow:
             rate=16000, 
             chunk_duration_ms=30, 
             padding_duration_ms=300,
-            stt_engine="google_stt"
+            stt_engine="google_stt",
+            callback=None
             ):
         self.vad = webrtcvad.Vad(vad_mode)
         self.FORMAT = pyaudio.paInt16
@@ -34,7 +35,6 @@ class SpeechToTextNow:
         self.NUM_PADDING_CHUNKS = int(self.PADDING_DURATION_MS / self.CHUNK_DURATION_MS)
         self.audio = pyaudio.PyAudio()  
         self.device_index, self.device_name = self.find_microphone()
-        print(self.device_index, self.device_name)
         self.stream = self.audio.open(format=self.FORMAT, channels=self.CHANNELS,
                                       rate=self.RATE, input=True, input_device_index=self.device_index,
                                       frames_per_buffer=self.CHUNK_SIZE)
@@ -42,6 +42,7 @@ class SpeechToTextNow:
         self.speech_segments_queue = queue.Queue()
         self.stt_engine = stt_engine
         self.stt = STTEngine()
+        self.set_callback = callback
 
     def find_microphone(self):
         keywords = ["Microphone", "Mic", "Input", "Line In"]
@@ -87,7 +88,6 @@ class SpeechToTextNow:
                     ring_buffer.append(chunk)
                     num_voiced = len([frame for frame in ring_buffer if self.vad.is_speech(frame, self.RATE)])
                     if num_voiced > 0.9 * ring_buffer.maxlen:
-                        #print("Start Recording")
                         triggered = True
                         voiced_frames = list(ring_buffer)
                         ring_buffer.clear()
@@ -96,27 +96,35 @@ class SpeechToTextNow:
                     ring_buffer.append(chunk)
                     num_unvoiced = len([frame for frame in ring_buffer if not self.vad.is_speech(frame, self.RATE)])
                     if num_unvoiced > 0.9 * ring_buffer.maxlen:
-                        #print("End Recording")
                         triggered = False
                         self.speech_segments_queue.put(voiced_frames)
-                        threading.Thread(target=self.start_queue).start()                        
+                        threading.Thread(target=self.start_queue, args=(self.set_callback,)).start()                        
                         voiced_frames = []
         finally:
             self.stream.stop_stream()
             self.stream.close()
             self.audio.terminate()
     
-    def start_queue(self):
+    def set_callback(self, result):
+        result
+
+    def start_queue(self, callback):
         while not self.speech_segments_queue.empty():
             voiced_frames = self.speech_segments_queue.get()
             audio_data = self.save_speech(voiced_frames, self.RATE)
             transcribed_data = self.transcribe_audio(audio_data)
-            if transcribed_data:
-                print(transcribed_data)
+            if self.set_callback:
+                if transcribed_data:
+                    self.set_callback(transcribed_data)
+                else:
+                    pass
             else:
-                pass
+                if transcribed_data:
+                    print(transcribed_data)
+                else:
+                    pass
             self.speech_segments_queue.task_done()
-            
+
 class STTEngine:
     def __init__(self) -> None:
         api_key = os.getenv('OPENAI_API_KEY')
@@ -136,13 +144,10 @@ class STTEngine:
 
     def openai_stt(self, audio_data):
         audio_data.seek(0)
-
         with tempfile.TemporaryDirectory() as tmp_dir:
             temp_file_path = os.path.join(tmp_dir, "audio_data.wav")
-            
             with open(temp_file_path, 'wb') as tmp_file:
                 tmp_file.write(audio_data.getvalue())
-
             try:
                 with open(temp_file_path, 'rb') as audio_file:
                     transcription = self.client.audio.transcriptions.create(
@@ -154,12 +159,6 @@ class STTEngine:
                 return str(e)
 
 if __name__ == "__main__":
-        
-    sttn=SpeechToTextNow(
-        channels=1, rate=16000, 
-        chunk_duration_ms=30,
-        padding_duration_ms=300,
-        stt_engine="google_stt"
-    )
-
-    sttn.listen()
+                            
+    stt_now=SpeechToTextNow()
+    stt_now.listen()
