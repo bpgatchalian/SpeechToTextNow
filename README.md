@@ -32,33 +32,36 @@ pip install - requirements.txt
 ```
 Make sure your microphone is connected and configured as the default recording device. SpeechToTextNow will automatically start listening and transcribing in real-time.
 
-## Using the SpeechToTextNow Class
+## Usage
 
-You can integrate SpeechToTextNow into your own Python projects by creating an instance of the SpeechToTextNow class and calling the listen method. Here's a simple example:
-
+### Basic Usage:
+Here's a simple example to get you started with SpeechToTextNow:
 ```python
-# Initialize SpeechToTextNow
-sttn = SpeechToTextNow(
-    channels=1, 
-    rate=16000, 
-    chunk_duration_ms=30,
-    padding_duration_ms=300,
-    stt_engine="google_stt"
-)
-
-# Start listening and transcribing in real-time
-sttn.listen()
+stt_now = SpeechToTextNow()
+stt_now.listen()
 ```
+### Callback
+SpeechToTextNow supports a callback function for custom handling of the transcription results. This can be useful for integrating with other applications or processing the text further.
 
+Here's how to use the callback feature:
+```python
+def my_custom_callback(transcribed_text):
+    print("Received transcription:", transcribed_text)
+
+stt_now = SpeechToTextNow(callback=my_custom_callback)
+stt_now.listen()
+```
 ## Configuration
 
 You can customize SpeechToTextNow's behavior by modifying the following parameters:
 
-- **vad_mode**: Adjust the aggressiveness of voice activity detection. Range: 0 (least aggressive) to 3 (most aggressive).
-- **channels**: Number of audio channels (1 for mono, 2 for stereo).
-- **rate**: Sampling rate in Hz.
-- **chunk_duration_ms**: Duration of audio chunks to process, in milliseconds.
-- **padding_duration_ms**: Duration of padding (silence) used for VAD triggering, in milliseconds.
+- **vad_mode**: (int, default=1) Adjust the aggressiveness of voice activity detection. Range: 0 (least aggressive) to 3 (most aggressive).
+- **channels**: (int, default=1) Number of audio channels (1 for mono, 2 for stereo).
+- **rate**: (int, default=16000) Sampling rate in Hz.
+- **chunk_duration_ms**: (int, default=30) Duration of audio chunks to process, in milliseconds.
+- **padding_duration_ms**: (int, default=300) Duration of padding (silence) used for VAD triggering, in milliseconds.
+- **stt_engine**: (str, default="google_stt") Choose between "google_stt" and "openai_stt" for the speech recognition engine.
+- **callback**: (function, default=None) A function that will be called with the transcribed text as its argument.
 
 ## Contributing
 
