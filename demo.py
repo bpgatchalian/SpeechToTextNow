@@ -22,16 +22,15 @@ class SpeechToTextNow:
             chunk_duration_ms=30, 
             padding_duration_ms=300,
             stt_engine="google_stt",
-            callback=None
+            transcription_callback=None
             ):
         self.vad = webrtcvad.Vad(vad_mode)
         self.FORMAT = pyaudio.paInt16
         self.CHANNELS = channels
         self.RATE = rate
         self.CHUNK_DURATION_MS = chunk_duration_ms
-        self.PADDING_DURATION_MS = padding_duration_ms
+        self.PADDING_DURATION_MS = padding_duration_ms 
         self.CHUNK_SIZE = int(self.RATE * self.CHUNK_DURATION_MS / 1000)
-        self.CHUNK_BYTES = self.CHUNK_SIZE * 2
         self.NUM_PADDING_CHUNKS = int(self.PADDING_DURATION_MS / self.CHUNK_DURATION_MS)
         self.audio = pyaudio.PyAudio()  
         self.device_index, self.device_name = self.find_microphone()
@@ -42,7 +41,9 @@ class SpeechToTextNow:
         self.speech_segments_queue = queue.Queue()
         self.stt_engine = stt_engine
         self.stt = STTEngine()
-        self.set_callback = callback
+        self.set_callback = transcription_callback
+        self.stop_event = threading.Event()
+        self.listen_thread = None
 
     def find_microphone(self):
         keywords = ["Microphone", "Mic", "Input", "Line In"]
@@ -75,13 +76,14 @@ class SpeechToTextNow:
             return openai_stt
 
     def listen(self):
+        self.stream.start_stream()
         ring_buffer = collections.deque(maxlen=self.NUM_PADDING_CHUNKS)
         voiced_frames = []
         triggered = False
         print("Listening...")
         try:
-            while True:
-                chunk = self.stream.read(self.CHUNK_SIZE)
+            while not self.stop_event.is_set():
+                chunk = self.stream.read(self.CHUNK_SIZE, exception_on_overflow=False)
                 is_speech = self.vad.is_speech(chunk, self.RATE)
                 
                 if not triggered:
@@ -104,26 +106,31 @@ class SpeechToTextNow:
             self.stream.stop_stream()
             self.stream.close()
             self.audio.terminate()
-    
-    def set_callback(self, result):
-        result
 
-    def start_queue(self, callback):
+    def set_callback(self, result):
+        pass
+
+    def start_queue(self, transcription_callback):
         while not self.speech_segments_queue.empty():
             voiced_frames = self.speech_segments_queue.get()
             audio_data = self.save_speech(voiced_frames, self.RATE)
             transcribed_data = self.transcribe_audio(audio_data)
-            if self.set_callback:
-                if transcribed_data:
-                    self.set_callback(transcribed_data)
-                else:
-                    pass
+            if transcription_callback:
+                transcription_callback(transcribed_data)
             else:
                 if transcribed_data:
                     print(transcribed_data)
-                else:
-                    pass
             self.speech_segments_queue.task_done()
+            
+    def start_listening(self):
+        self.stop_event.clear()
+        self.listen_thread = threading.Thread(target=self.listen)
+        self.listen_thread.start()
+
+    def stop_listening(self):
+        self.stop_event.set()
+        if self.listen_thread:
+            self.listen_thread.join()
 
 class STTEngine:
     def __init__(self) -> None:
@@ -159,6 +166,6 @@ class STTEngine:
                 return str(e)
 
 if __name__ == "__main__":
-                            
-    stt_now=SpeechToTextNow()
+
+    stt_now = SpeechToTextNow()
     stt_now.listen()

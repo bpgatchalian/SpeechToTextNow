@@ -34,22 +34,34 @@ Make sure your microphone is connected and configured as the default recording d
 
 ## Usage
 
-### Basic Usage:
-Here's a simple example to get you started with SpeechToTextNow:
+### Quick Start with listen()
+For a quick start, simply create an instance of SpeechToTextNow and call the listen() method. This will block the execution and continuously transcribe speech until manually stopped or interrupted:
 ```python
 stt_now = SpeechToTextNow()
 stt_now.listen()
 ```
-### Callback
-SpeechToTextNow supports a callback function for custom handling of the transcription results. This can be useful for integrating with other applications or processing the text further.
+This approach is straightforward and ideal for testing or simple scripts where concurrent tasks are not needed while listening.
 
-Here's how to use the callback feature:
+### Using start_listening() and stop_listening()
+For more control and to enable concurrent execution in your application, use the **start_listening()** and **stop_listening()** methods. This allows SpeechToTextNow to run in the background:
+```python
+stt_now = SpeechToTextNow()
+
+stt_now.start_listening() # start listening
+
+stt_now.stop_listening() # call when ready to stop listening
+```
+### Handling Transcriptions with Callbacks
+SpeechToTextNow supports the use of a callback function to process the transcription results in real-time. This is particularly useful for applications requiring immediate action upon transcription:
 ```python
 def my_custom_callback(transcribed_text):
     print("Received transcription:", transcribed_text)
 
-stt_now = SpeechToTextNow(callback=my_custom_callback)
-stt_now.listen()
+stt_now = SpeechToTextNow(transcription_callback=my_custom_callback)
+
+stt_now.start_listening() # start listening
+
+stt_now.stop_listening() # call when ready to stop listening
 ```
 ## Configuration
 
@@ -61,7 +73,7 @@ You can customize SpeechToTextNow's behavior by modifying the following paramete
 - **chunk_duration_ms**: (int, default=30) Duration of audio chunks to process, in milliseconds.
 - **padding_duration_ms**: (int, default=300) Duration of padding (silence) used for VAD triggering, in milliseconds.
 - **stt_engine**: (str, default="google_stt") Choose between "google_stt" and "openai_stt" for the speech recognition engine.
-- **callback**: (function, default=None) A function that will be called with the transcribed text as its argument.
+- **transcription_callback**: (function, default=None) A function that will be called with the transcribed text as its argument.
 
 ## Contributing
 
