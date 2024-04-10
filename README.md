@@ -9,6 +9,17 @@ SpeechToTextNow is a realtime speech-to-text tool designed to transcribe voice i
 - **Parallel Processing**: Utilizes threading to handle transcription in parallel with audio capture.
 - **Speech Segmentation and Queuing**: Manages speech segments in a queue for orderly processing.
 - **Google Speech Recognition**: Leverages Google's powerful speech recognition API
+- **OpenAI API Speech to Text (Whisper)**: Leverages OpenAI's state-of-the-art Whisper model for highly accurate speech-to-text transcription.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- Python 3.9 or higher
+
+Additionally, you will need:
+
+- An API key from OpenAI if you intend to use OpenAI's speech-to-text API.
 
 ## Installation
 
