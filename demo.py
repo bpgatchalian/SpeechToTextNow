@@ -8,6 +8,7 @@ import io
 import queue
 import threading
 import tempfile
+import sys
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -40,7 +41,7 @@ class SpeechToTextNow:
     
         self.speech_segments_queue = queue.Queue()
         self.stt_engine = stt_engine
-        self.stt = STTEngine()
+        self.stt = STTEngine(stt_engine)
         self.set_callback = transcription_callback
         self.stop_event = threading.Event()
         self.listen_thread = None
@@ -133,9 +134,18 @@ class SpeechToTextNow:
             self.listen_thread.join()
 
 class STTEngine:
-    def __init__(self) -> None:
-        api_key = os.getenv('OPENAI_API_KEY')
-        self.client = OpenAI(api_key=api_key)
+    def __init__(self, stt_engine):
+        if stt_engine=='google_stt':
+            self.client=None
+        elif stt_engine=='openai_stt':
+            try:
+                self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+            except Exception as e:
+                print(f"Failed to initialize OpenAI client")
+                raise
+        else:
+            print("Invalid stt_engine option. Closing...")
+            sys.exit(1)
 
     def google_stt(self, audio_data):
         recognizer = sr.Recognizer()
